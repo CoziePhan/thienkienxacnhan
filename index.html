@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbox Phân Tích Thiên Kiến</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="chatbox-container">
+            <div class="chatbox-header">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>Phân Tích Thiên Kiến</h1>
+                </div>
+                <p class="tagline">Phân tích và phản biện thiên kiến xác nhận trong văn bản của bạn</p>
+            </div>
+            
+            <div class="chatbox-body">
+                <div class="messages" id="messages">
+                    <div class="message ai-message">
+                        <div class="message-content">
+                            <p>Chào bạn! Tôi là trợ lý AI giúp phân tích thiên kiến xác nhận. Hãy nhập văn bản bạn muốn phân tích, tôi sẽ:</p>
+                            <ol>
+                                <li>Tóm tắt các ý kiến trái chiều và trung lập</li>
+                                <li>Đánh giá mức độ thiên kiến xác nhận</li>
+                                <li>Đưa ra câu hỏi gợi mở nhằm mở rộng tư duy</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-area">
+                    <textarea id="user-input" placeholder="Nhập văn bản cần phân tích thiên kiến..."></textarea>
+                    <div class="buttons">
+                        <button id="clear-btn">Xóa</button>
+                        <button id="send-btn"><i class="fas fa-paper-plane"></i> Gửi</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chatbox-footer">
+                <div class="bias-meter">
+                    <span>Mức độ thiên kiến:</span>
+                    <div class="meter">
+                        <div class="meter-fill" id="bias-level" style="width: 0%"></div>
+                    </div>
+                    <span id="bias-text">Chưa phân tích</span>
+                </div>
+                <div class="info">
+                    <p><i class="fas fa-info-circle"></i> Công cụ này giúp nhận diện thiên kiến xác nhận - xu hướng tìm kiếm và ưu tiên thông tin củng cố niềm tin sẵn có.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messagesContainer = document.getElementById('messages');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-btn');
+            const clearButton = document.getElementById('clear-btn');
+            const biasLevel = document.getElementById('bias-level');
+            const biasText = document.getElementById('bias-text');
+            
+            // API Key Gemini - thay thế bằng API key thực
+            const apiKey = 'AIzaSyBInu4Vd2IAW-Q8EsS2NLtvhzMKw4EWvi8';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            function addMessage(text, isUser) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = isUser ? 'message user-message' : 'message ai-message';
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                
+                // Xử lý định dạng văn bản
+                text = formatMessage(text);
+                
+                contentDiv.innerHTML = text;
+                messageDiv.appendChild(contentDiv);
+                messagesContainer.appendChild(messageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            function formatMessage(text) {
+                // Xử lý đoạn văn bản có định dạng
+                if (text.includes('Ý kiến trái chiều:') || text.includes('Ý kiến trung lập:')) {
+                    text = text.replace(/Ý kiến trái chiều:/g, '<strong class="opposing">Ý kiến trái chiều:</strong>');
+                    text = text.replace(/Ý kiến trung lập:/g, '<strong class="neutral">Ý kiến trung lập:</strong>');
+                }
+                
+                if (text.includes('Mức độ thiên kiến:')) {
+                    text = text.replace(/Mức độ thiên kiến:.*?(\d+%)/g, '<span class="bias-highlight">Mức độ thiên kiến: $1</span>');
+                }
+                
+                if (text.includes('Câu hỏi gợi mở:')) {
+                    text = text.replace(/Câu hỏi gợi mở:/g, '<strong class="questions">Câu hỏi gợi mở:</strong>');
+                }
+                
+                return text;
+            }
+            
+            function updateBiasMeter(biasText) {
+                // Trích xuất phần trăm thiên kiến từ phản hồi
+                const biasMatch = biasText.match(/Mức độ thiên kiến:.*?(\d+)%/);
+                if (biasMatch && biasMatch[1]) {
+                    const biasPercentage = parseInt(biasMatch[1]);
+                    biasLevel.style.width = biasPercentage + '%';
+                    
+                    if (biasPercentage < 30) {
+                        biasLevel.className = 'meter-fill low';
+                        biasText.textContent = 'Thấp (' + biasPercentage + '%)';
+                    } else if (biasPercentage < 70) {
+                        biasLevel.className = 'meter-fill medium';
+                        biasText.textContent = 'Trung bình (' + biasPercentage + '%)';
+                    } else {
+                        biasLevel.className = 'meter-fill high';
+                        biasText.textContent = 'Cao (' + biasPercentage + '%)';
+                    }
+                }
+            }
+            
+            async function sendMessage() {
+                const userText = userInput.value.trim();
+                if (!userText) return;
+                
+                // Hiển thị tin nhắn người dùng
+                addMessage(userText, true);
+                userInput.value = '';
+                
+                // Hiển thị trạng thái đang xử lý
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message ai-message loading';
+                loadingDiv.innerHTML = '<div class="message-content"><div class="loading-animation"><div></div><div></div><div></div></div></div>';
+                messagesContainer.appendChild(loadingDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                try {
+                    // Định nghĩa prompt cho Gemini
+                    const prompt = `Phân tích văn bản sau và:
+                    1. Tóm tắt các ý kiến trái chiều và trung lập
+                    2. Đánh giá mức độ thiên kiến xác nhận (thể hiện bằng %)
+                    3. Đưa ra câu hỏi gợi mở nhằm mở rộng tư duy về vấn đề
+                    
+                    Định dạng phản hồi:
+                    Tóm tắt: [tóm tắt ngắn gọn về văn bản]
+                    
+                    Ý kiến trái chiều: [liệt kê các ý kiến trái chiều với quan điểm chính]
+                    
+                    Ý kiến trung lập: [liệt kê các ý kiến trung lập hoặc cung cấp góc nhìn khách quan]
+                    
+                    Mức độ thiên kiến: [X%] (với lý do)
+                    
+                    Câu hỏi gợi mở: [3-5 câu hỏi để mở rộng tư duy]
+                    
+                    Văn bản cần phân tích: "${userText}"`;
+                    
+                    // Gọi API của Gemini
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: prompt
+                                }]
+                            }],
+                            generationConfig: {
+                                temperature: 0.7,
+                                maxOutputTokens: 4096
+                            }
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Xóa thông báo loading
+                    messagesContainer.removeChild(loadingDiv);
+                    
+                    // Kiểm tra phản hồi từ API
+                    if (data.candidates && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
+                        const aiResponse = data.candidates[0].content.parts[0].text;
+                        addMessage(aiResponse, false);
+                        updateBiasMeter(aiResponse);
+                    } else {
+                        throw new Error('Không nhận được phản hồi hợp lệ từ API');
+                    }
+                    
+                } catch (error) {
+                    console.error('Lỗi:', error);
+                    messagesContainer.removeChild(loadingDiv);
+                    addMessage('Đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng kiểm tra API key hoặc thử lại sau.', false);
+                }
+            }
+            
+            sendButton.addEventListener('click', sendMessage);
+            
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            clearButton.addEventListener('click', function() {
+                userInput.value = '';
+                userInput.focus();
+            });
+        });
+    </script>
+</body>
+</html>
